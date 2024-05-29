@@ -1,65 +1,134 @@
 #include <iostream>
-#include <string>
+#include <stack>
+#include <queue>
 using namespace std;
 
 struct Task {
-    std::string description;
+    int id;
+    string description;
     Task* next;
-};
 
-class TodoList {
+    Task(int id, string desc) : id(id), description(desc), next(nullptr) {}
+};
+class ToDoList {
 private:
     Task* head;
-    Task* undoStack;
+    int taskIdCounter;
+
+    // Recursive function to print tasks
+    void printTasks(Task* task) {
+        if (task == nullptr) return;
+        cout << "Task ID: " << task->id << ", Description: " << task->description << endl;
+        printTasks(task->next);
+    }
+
+    // Recursive function to delete all tasks
+    void clearTasks(Task* task) {
+        if (task == nullptr) return;
+        clearTasks(task->next);
+        delete task;
+    }
 
 public:
-    TodoList() : head(nullptr), undoStack(nullptr) {}
+    ToDoList() : head(nullptr), taskIdCounter(0) {}
+
+    ~ToDoList() {
+        clearTasks(head);
+    }
 
     void addTask(const string& description) {
-        Task* newTask = new Task{ description, head };
+        Task* newTask = new Task(taskIdCounter++, description);
+        newTask->next = head;
         head = newTask;
-        newTask->next = undoStack;
-        undoStack = newTask;
     }
 
-    void undo() {
-        if (undoStack) {
-            Task* lastTask = undoStack;
-            undoStack = undoStack->next;
-            delete lastTask;
+    void removeTask(int id) {
+        Task* temp = head;
+        Task* prev = nullptr;
+        while (temp != nullptr && temp->id != id) {
+            prev = temp;
+            temp = temp->next;
         }
+        if (temp == nullptr) {
+            cout << "Task ID " << id << " not found." << endl;
+            return;
+        }
+        if (prev == nullptr) {
+            head = temp->next;
+        }
+        else {
+            prev->next = temp->next;
+        }
+        delete temp;
     }
 
-    void displayTasks() {
-        Task* current = head;
-        while (current) {
-            std::cout << current->description << std::endl;
-            current = current->next;
-        }
+    void printTasks() {
+        printTasks(head);
     }
 
-    ~TodoList() {
-        while (head) {
-            Task* temp = head;
-            head = head->next;
-            delete temp;
-        }
+    void clearTasks() {
+        clearTasks(head);
+        head = nullptr;
+        taskIdCounter = 0;
     }
 };
+stack<Task*> undoStack;
+queue<Task*> priorityQueue;
 
+void undoLastAdd(ToDoList& list) {
+    if (undoStack.empty()) {
+        cout << "No tasks to undo." << endl;
+        return;
+    }
+    Task* task = undoStack.top();
+    undoStack.pop();
+    list.removeTask(task->id);
+    delete task;
+}
+
+void addPriorityTask(ToDoList& list, const string& description) {
+    Task* newTask = new Task(-1, description); // -1 to indicate a priority task
+    priorityQueue.push(newTask);
+}
+
+void processPriorityTasks(ToDoList& list) {
+    while (!priorityQueue.empty()) {
+        Task* task = priorityQueue.front();
+        priorityQueue.pop();
+        list.addTask(task->description);
+        delete task;
+    }
+}
 int main() {
-    TodoList todo;
+    ToDoList todoList;
 
-    todo.addTask("Buy groceries");
-    todo.addTask("Finish homework");
-    todo.addTask("Call mom");
+    todoList.addTask("Buy groceries");
+    todoList.addTask("Complete C++ project");
+    todoList.addTask("Call mom");
 
-    cout << "Tasks in the to-do list:" << std::endl;
-    todo.displayTasks();
+    undoStack.push(new Task(0, "Buy groceries"));
+    undoStack.push(new Task(1, "Complete C++ project"));
+    undoStack.push(new Task(2, "Call mom"));
 
-    todo.undo();
-    cout << "\nAfter undoing the last task:" << std::endl;
-    todo.displayTasks();
+    cout << "Current Tasks:" << endl;
+    todoList.printTasks();
 
+    cout << "\nRemoving Task ID 1:" << endl;
+    todoList.removeTask(1);
+    todoList.printTasks();
+
+    cout << "\nUndo last add:" << endl;
+    undoLastAdd(todoList);
+    todoList.printTasks();
+
+    cout << "\nAdding priority task:" << endl;
+    addPriorityTask(todoList, "Urgent: Fix bug");
+    processPriorityTasks(todoList);
+    todoList.printTasks();
+
+    cout << "\nClearing all tasks:" << endl;
+    todoList.clearTasks();
+    todoList.printTasks();
+    system("pause");
     return 0;
 }
